@@ -1,0 +1,356 @@
+
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASHMONEY BOSS - SACCOS Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .transition-all { transition: all 0.3s ease; }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div id="app"></div>
+
+    <script>
+        // Data ya Dashboard
+        let dashboardData = {
+            wanachama: { jumla: 450, wapya: 23, hai: 432, wasiofanya: 18 },
+            fedha: { jumlaAkiba: 125000000, jumlaMikopo: 89500000, rejareja: 35500000, mikopoMiovu: 4250000 },
+            mikopo: { mikopoMitendaji: 156, mikopoIliyolipwa: 89, mikopoOverdue: 12, kiwangoRiba: 12 },
+            mapato: { ribaYaMikopo: 10740000, adaZaUanachama: 2250000, mapato_mengine: 1500000, jumlaMapato: 14490000 }
+        };
+
+        let tempData = JSON.parse(JSON.stringify(dashboardData));
+        let editMode = false;
+        let showLinkInput = false;
+        let linkUrl = '';
+        let loading = false;
+
+        // Format namba
+        function formatNumber(num) {
+            return new Intl.NumberFormat('sw-TZ').format(num);
+        }
+
+        // Hesabu viashiria
+        function hesabuViashiria() {
+            const { fedha } = dashboardData;
+            return {
+                upatikanaji: ((fedha.rejareja / fedha.jumlaAkiba) * 100).toFixed(1),
+                uwianoPato: ((fedha.jumlaMikopo / fedha.jumlaAkiba) * 100).toFixed(1),
+                mikopoChafu: ((fedha.mikopoMiovu / fedha.jumlaMikopo) * 100).toFixed(1),
+                kiwangoKukua: 15.3
+            };
+        }
+
+        // Icons SVG
+        const icons = {
+            users: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>',
+            dollar: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+            trending: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>',
+            credit: '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>',
+            upload: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>',
+            edit: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>',
+            save: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+            link: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>',
+            alert: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>'
+        };
+
+        // Handle file upload
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            loading = true;
+            render();
+
+            try {
+                const text = await file.text();
+                const lines = text.split('\n');
+
+                if (file.name.endsWith('.csv')) {
+                    const newData = JSON.parse(JSON.stringify(dashboardData));
+                    lines.forEach(line => {
+                        const [key, value] = line.split(',');
+                        if (key && value) {
+                            const trimmedKey = key.trim();
+                            const numValue = parseFloat(value.trim());
+
+                            if (trimmedKey.includes('wanachama_jumla')) newData.wanachama.jumla = numValue;
+                            if (trimmedKey.includes('wanachama_wapya')) newData.wanachama.wapya = numValue;
+                            if (trimmedKey.includes('jumla_akiba')) newData.fedha.jumlaAkiba = numValue;
+                            if (trimmedKey.includes('jumla_mikopo')) newData.fedha.jumlaMikopo = numValue;
+                        }
+                    });
+                    dashboardData = newData;
+                    tempData = JSON.parse(JSON.stringify(dashboardData));
+                    alert('Data imepakiwa kikamilifu!');
+                }
+            } catch (error) {
+                alert('Hitilafu katika kusoma file: ' + error.message);
+            }
+
+            loading = false;
+            render();
+        }
+
+        // Handle link load
+        async function handleLinkLoad() {
+            if (!linkUrl) {
+                alert('Tafadhali weka link ya data');
+                return;
+            }
+
+            loading = true;
+            render();
+
+            try {
+                const response = await fetch(linkUrl);
+                const text = await response.text();
+                const lines = text.split('\n');
+
+                const newData = JSON.parse(JSON.stringify(dashboardData));
+                lines.forEach(line => {
+                    const [key, value] = line.split(',');
+                    if (key && value) {
+                        const trimmedKey = key.trim();
+                        const numValue = parseFloat(value.trim());
+
+                        if (trimmedKey.includes('wanachama_jumla')) newData.wanachama.jumla = numValue;
+                        if (trimmedKey.includes('wanachama_wapya')) newData.wanachama.wapya = numValue;
+                        if (trimmedKey.includes('jumla_akiba')) newData.fedha.jumlaAkiba = numValue;
+                        if (trimmedKey.includes('jumla_mikopo')) newData.fedha.jumlaMikopo = numValue;
+                    }
+                });
+
+                dashboardData = newData;
+                tempData = JSON.parse(JSON.stringify(dashboardData));
+                showLinkInput = false;
+                alert('Data kutoka link imepakiwa kikamilifu!');
+            } catch (error) {
+                alert('Hitilafu katika kupakia data: ' + error.message);
+            }
+
+            loading = false;
+            render();
+        }
+
+        // Handle data change
+        function handleDataChange(category, field, value) {
+            tempData[category][field] = parseFloat(value) || 0;
+        }
+
+        // Save changes
+        function saveChanges() {
+            dashboardData = JSON.parse(JSON.stringify(tempData));
+            editMode = false;
+            alert('Mabadiliko yamehifadhiwa!');
+            render();
+        }
+
+        // Cancel edit
+        function cancelEdit() {
+            tempData = JSON.parse(JSON.stringify(dashboardData));
+            editMode = false;
+            render();
+        }
+
+        // Render dashboard
+        function render() {
+            const viashiria = hesabuViashiria();
+            const currentDate = new Date().toLocaleDateString('sw-TZ', { year: 'numeric', month: 'long' });
+
+            document.getElementById('app').innerHTML = `
+                <div class="container mx-auto px-4 py-8 max-w-7xl">
+                    <!-- Header -->
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-2xl p-8 mb-8 text-white">
+                        <div class="flex justify-between items-center flex-wrap gap-4">
+                            <div>
+                                <h1 class="text-5xl font-bold mb-1">💰 CASHMONEY BOSS</h1>
+                                <h2 class="text-2xl font-semibold mb-2 opacity-90">MAKE MONEY WORK FOR YOU!</h2>
+                                <p class="text-blue-100 text-lg">Muhtasari wa Utendaji - ${currentDate}</p>
+                            </div>
+                            <div class="flex gap-3 flex-wrap">
+                                <!-- Upload File Button -->
+                                <label class="bg-white text-blue-700 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition cursor-pointer flex items-center gap-2">
+                                    ${icons.upload}
+                                    Pakia File
+                                    <input type="file" accept=".csv" onchange="handleFileUpload(event)" class="hidden" />
+                                </label>
+
+                                <!-- Link Button -->
+                                <button onclick="showLinkInput = !showLinkInput; render();" 
+                                    class="bg-white text-blue-700 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition flex items-center gap-2"
+                                    ${loading ? 'disabled' : ''}>
+                                    ${icons.link}
+                                    Pakia kutoka Link
+                                </button>
+
+                                <!-- Edit Button -->
+                                ${!editMode ? `
+                                    <button onclick="editMode = true; render();" 
+                                        class="bg-yellow-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-yellow-600 transition flex items-center gap-2">
+                                        ${icons.edit}
+                                        Hariri Data
+                                    </button>
+                                ` : `
+                                    <button onclick="saveChanges();" 
+                                        class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition flex items-center gap-2">
+                                        ${icons.save}
+                                        Hifadhi
+                                    </button>
+                                    <button onclick="cancelEdit();" 
+                                        class="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600 transition">
+                                        Futa
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+
+                        <!-- Link Input -->
+                        ${showLinkInput ? `
+                            <div class="mt-6 bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4">
+                                <div class="flex gap-3 items-center flex-wrap">
+                                    <span class="text-white font-semibold">${icons.link}</span>
+                                    <input type="text" 
+                                        placeholder="https://example.com/data.csv" 
+                                        value="${linkUrl}"
+                                        oninput="linkUrl = this.value"
+                                        class="flex-1 px-4 py-2 rounded-lg text-gray-800 min-w-[250px]" />
+                                    <button onclick="handleLinkLoad();" 
+                                        class="bg-green-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-600 transition"
+                                        ${loading ? 'disabled' : ''}>
+                                        ${loading ? 'Inapakia...' : 'Pakia'}
+                                    </button>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Statistics Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        ${createCard('Jumla ya Wanachama', dashboardData.wanachama.jumla, icons.users, 'blue', '+' + dashboardData.wanachama.wapya + ' wapya', 'wanachama', 'jumla')}
+                        ${createCard('Jumla ya Akiba', 'TSh ' + formatNumber(dashboardData.fedha.jumlaAkiba), icons.dollar, 'green', '', 'fedha', 'jumlaAkiba')}
+                        ${createCard('Jumla ya Mikopo', 'TSh ' + formatNumber(dashboardData.fedha.jumlaMikopo), icons.credit, 'purple', '', 'fedha', 'jumlaMikopo')}
+                        ${createCard('Fedha Rejareja', 'TSh ' + formatNumber(dashboardData.fedha.rejareja), icons.trending, 'orange', '', 'fedha', 'rejareja')}
+                    </div>
+
+                    <!-- Performance Indicators -->
+                    <div class="bg-white rounded-2xl shadow-xl p-6 mb-8">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                            📊 Viashiria vya Utendaji
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="text-center p-4 bg-blue-50 rounded-xl">
+                                <p class="text-gray-600 mb-2">Upatikanaji wa Fedha</p>
+                                <p class="text-3xl font-bold text-blue-600">${viashiria.upatikanaji}%</p>
+                            </div>
+                            <div class="text-center p-4 bg-green-50 rounded-xl">
+                                <p class="text-gray-600 mb-2">Uwiano wa Pato</p>
+                                <p class="text-3xl font-bold text-green-600">${viashiria.uwianoPato}%</p>
+                            </div>
+                            <div class="text-center p-4 bg-red-50 rounded-xl">
+                                <p class="text-gray-600 mb-2">NPL Ratio</p>
+                                <p class="text-3xl font-bold text-red-600">${viashiria.mikopoChafu}%</p>
+                            </div>
+                            <div class="text-center p-4 bg-purple-50 rounded-xl">
+                                <p class="text-gray-600 mb-2">Kiwango cha Kukua</p>
+                                <p class="text-3xl font-bold text-purple-600">${viashiria.kiwangoKukua}%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Instructions -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl shadow-lg p-6 mb-8 border-l-4 border-blue-500">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            ${icons.alert}
+                            Jinsi ya Kutumia:
+                        </h3>
+                        <ul class="space-y-2 text-gray-700">
+                            <li><strong>• Hariri Data:</strong> Bonyeza "Hariri Data" ili kubadilisha takwimu moja kwa moja</li>
+                            <li><strong>• Pakia File:</strong> Pakia faili ya CSV yenye data yako (Format: key,value)</li>
+                            <li><strong>• Pakia kutoka Link:</strong> Weka link ya CSV ya data yako (lazima iwe publicly accessible)</li>
+                            <li><strong>• Format ya CSV:</strong> wanachama_jumla,450 | jumla_akiba,125000000 | jumla_mikopo,89500000</li>
+                        </ul>
+                    </div>
+
+                    <!-- Loans Table -->
+                    <div class="bg-white rounded-2xl shadow-xl p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">📋 Hali ya Mikopo</h2>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Aina ya Mkopo</th>
+                                        <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Idadi</th>
+                                        <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Kiasi (TSh)</th>
+                                        <th class="px-6 py-3 text-left text-sm font-semibold text-gray-700">Asilimia</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <tr class="hover:bg-gray-50 transition">
+                                        <td class="px-6 py-4 text-gray-800">Mikopo ya Biashara</td>
+                                        <td class="px-6 py-4 text-gray-600">87</td>
+                                        <td class="px-6 py-4 text-gray-600">45,500,000</td>
+                                        <td class="px-6 py-4"><span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">50.8%</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50 transition">
+                                        <td class="px-6 py-4 text-gray-800">Mikopo ya Dharura</td>
+                                        <td class="px-6 py-4 text-gray-600">45</td>
+                                        <td class="px-6 py-4 text-gray-600">18,200,000</td>
+                                        <td class="px-6 py-4"><span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">20.3%</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50 transition">
+                                        <td class="px-6 py-4 text-gray-800">Mikopo ya Elimu</td>
+                                        <td class="px-6 py-4 text-gray-600">24</td>
+                                        <td class="px-6 py-4 text-gray-600">25,800,000</td>
+                                        <td class="px-6 py-4"><span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-semibold">28.9%</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Create card HTML
+        function createCard(jina, thamani, ikoni, rangi, kipengele, category, field) {
+            const colorClasses = {
+                blue: 'from-blue-500 to-blue-600',
+                green: 'from-green-500 to-green-600',
+                purple: 'from-purple-500 to-purple-600',
+                orange: 'from-orange-500 to-orange-600'
+            };
+
+            const displayValue = editMode && category && field 
+                ? `<input type="number" value="${dashboardData[category][field]}" 
+                     oninput="handleDataChange('${category}', '${field}', this.value); this.parentElement.dataset.value = this.value"
+                     class="text-2xl font-bold mt-2 w-full border-2 border-blue-300 rounded px-2 py-1 text-gray-800" />`
+                : `<p class="text-2xl font-bold mt-2">${thamani}</p>`;
+
+            return `
+                <div class="bg-gradient-to-br ${colorClasses[rangi]} rounded-xl shadow-lg p-6 text-white card-hover transition-all">
+                    <div class="flex justify-between items-start mb-4">
+                        <p class="text-sm opacity-90">${jina}</p>
+                        ${ikoni}
+                    </div>
+                    ${displayValue}
+                    ${kipengele ? `<p class="text-sm mt-2 opacity-90">${kipengele}</p>` : ''}
+                </div>
+            `;
+        }
+
+        // Initial render
+        render();
+    </script>
+</body>
+</html>
